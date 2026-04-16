@@ -212,7 +212,7 @@ function runDashboard(isAdmin: boolean) {
     {name:'Zachary Nelson',title:'Manager, Customer Success',dept:'CS',pathScore:100,guideScore:100,callScore:null,reason:''},
   ]
 
-  let DATA: User[] = BASE.map(u => ({ ...u }))
+  let DATA: User[] = BASE.map(u => ({ ...u, statusOverride: '' }))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let csChart: any = null, certChart: any = null, compChart: any = null
 
@@ -424,8 +424,14 @@ function runDashboard(isAdmin: boolean) {
   }
 
   w.overrideStatus = (name: string, val: string) => {
+    console.log('overrideStatus called:', name, val)
     const u = DATA.find(d => d.name === name)
-    if (u) u.statusOverride = val
+    if (u) {
+      u.statusOverride = val
+      console.log('set statusOverride on', u.name, ':', u.statusOverride)
+    } else {
+      console.log('user not found:', name)
+    }
     renderScoresTable()
   }
 
