@@ -53,6 +53,8 @@ tr:hover td{background:var(--bg2)}
 .filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .filter-row label{font-size:12px;color:var(--text2)}
 .filter-row select{font-size:12px;padding:4px 8px;border:.5px solid var(--border2);border-radius:var(--r-md);background:var(--bg);color:var(--text)}
+.search-box{font-size:12px;padding:4px 10px;border:.5px solid var(--border2);border-radius:var(--r-md);background:var(--bg);color:var(--text);width:180px}
+.search-box:focus{outline:none;border-color:var(--green)}
 .btn-sm{font-size:12px;padding:5px 12px;border-radius:var(--r-md);border:.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer}
 .btn-sm:hover{background:var(--bg2)}
 .btn-save{border-color:var(--green);color:var(--green)}
@@ -116,6 +118,7 @@ tr:hover td{background:var(--bg2)}
     <div class="metric-row" id="scores-metrics"></div>
     <div class="toolbar">
       <div class="filter-row">
+        <input class="search-box" id="name-search" type="text" placeholder="🔍 Search by name…" oninput="renderScoresTable()">
         <label>Dept:</label>
         <select id="dept-filter" onchange="renderScoresTable()">
           <option value="">All</option><option>CS</option><option>IE</option><option>Support</option>
@@ -340,7 +343,8 @@ function statusCell(name, cur) {
 function renderScoresTable() {
   const dept = document.getElementById('dept-filter').value
   const stat = document.getElementById('status-filter').value
-  let users = DATA.filter(u => (!dept||u.dept===dept) && (!stat||effStatus(u)===stat))
+  const search = document.getElementById('name-search').value.trim().toLowerCase()
+  let users = DATA.filter(u => (!dept||u.dept===dept) && (!stat||effStatus(u)===stat) && (!search||u.name.toLowerCase().includes(search)))
   const t=users.length, c=users.filter(u=>isCertified(u)||u.statusOverride==='Certified').length
   const ip=users.filter(u=>effStatus(u)==='In progress').length
   const fl=users.filter(u=>effStatus(u)==='Failed / needs retry').length
