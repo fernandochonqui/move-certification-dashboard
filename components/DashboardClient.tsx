@@ -4,12 +4,13 @@ import { useEffect, useRef } from 'react'
 
 const DASHBOARD_HTML = `
 <div id="global-tooltip"></div>
-<h2 class="sr-only">MOVE Certification Results Dashboard — four views: individual scores, call score distribution, certified users by department, and completion rates.</h2>
+<h2 class="sr-only">MOVE Certification Results Dashboard — five views: individual scores, call score distribution, certified users by department, completion rates, and completion timing.</h2>
 <div class="nav">
   <button class="nav-btn active" onclick="showSection('scores',this)">Individual scores</button>
   <button class="nav-btn" onclick="showSection('callscores',this)">Call score distribution</button>
   <button class="nav-btn" onclick="showSection('certified',this)">Certified by dept</button>
   <button class="nav-btn" onclick="showSection('completion',this)">Completion rates</button>
+  <button class="nav-btn" onclick="showSection('timing',this)">Completion timing</button>
 </div>
 
 <div id="sec-scores" class="section visible">
@@ -56,6 +57,27 @@ const DASHBOARD_HTML = `
   <div class="metric-row" id="comp-metrics"></div>
   <div id="comp-dept-cards"></div>
   <div style="position:relative;width:100%;height:300px;margin-top:1rem"><canvas id="compChart" role="img" aria-label="Stacked bar chart of completion by department"></canvas></div>
+</div>
+
+<div id="sec-timing" class="section">
+  <div class="metric-row" id="timing-metrics"></div>
+  <div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Days shown only for completed modules · Active span = first access → last access</div>
+  <div style="overflow-x:auto">
+    <table><thead>
+      <tr>
+        <th rowspan="2">Name</th><th rowspan="2">Dept</th>
+        <th colspan="2" style="text-align:center;border-bottom:.5px solid var(--color-border-tertiary)">PATH</th>
+        <th colspan="2" style="text-align:center;border-bottom:.5px solid var(--color-border-tertiary)">Guide</th>
+        <th colspan="2" style="text-align:center;border-bottom:.5px solid var(--color-border-tertiary)">Challenge</th>
+      </tr>
+      <tr>
+        <th>Assign→Done</th><th>Active span</th>
+        <th>Assign→Done</th><th>Active span</th>
+        <th>Assign→Done</th><th>Active span</th>
+      </tr>
+    </thead>
+    <tbody id="timing-body"></tbody></table>
+  </div>
 </div>
 `
 
@@ -120,6 +142,10 @@ tr:hover td{background:var(--color-background-secondary)}
 .info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:99px;background:var(--color-background-secondary);border:.5px solid var(--color-border-secondary);color:var(--color-text-secondary);font-size:10px;cursor:default;font-style:normal;line-height:1;flex-shrink:0}
 #global-tooltip{display:none;position:fixed;background:#1c1b19;color:#fff;font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;width:260px;white-space:normal;z-index:9999;font-weight:400;pointer-events:none}
 #global-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1c1b19}
+.timing-fast{color:#248567;font-weight:500}
+.timing-mid{color:#EF9F27;font-weight:500}
+.timing-slow{color:#E24B4A;font-weight:500}
+.timing-na{color:var(--color-text-secondary);font-style:italic;font-size:12px}
 `
 
 export default function DashboardClient({ isAdmin }: { isAdmin: boolean }) {
@@ -158,58 +184,180 @@ function runDashboard(isAdmin: boolean) {
   const newHireNames = new Set(['Andrew Stevenson', 'Taylor Sievers'])
   const tamNames = new Set(['Iryna Pekarchyk', 'Benjamin Rasalan', 'Jonathan Monje', 'Liezl Caña'])
 
+  type ModuleDates = { assigned?: string; completed?: string; firstAccessed?: string; lastAccessed?: string }
   type User = {
     name: string; title: string; dept: string
     pathScore: number | null; guideScore: number | null; callScore: number | null
     reason: string; statusOverride?: string
+    modules?: { path?: ModuleDates; guide?: ModuleDates; challenge?: ModuleDates }
   }
 
   const BASE: User[] = [
-    {name:'Andrew Stevenson',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:81,callScore:18,reason:''},
-    {name:'April Ayers',title:'Director, Customer Success',dept:'CS',pathScore:100,guideScore:100,callScore:null,reason:''},
-    {name:'Ashaiah Rainey',title:'Implementation Engineer',dept:'IE',pathScore:94,guideScore:88,callScore:16,reason:''},
-    {name:'Asim Siddiqi',title:'Assoc. Manager, IE',dept:'IE',pathScore:100,guideScore:100,callScore:null,reason:''},
-    {name:'Benjamin Rasalan',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:81,callScore:null,reason:''},
-    {name:'Darwin Medina',title:'Customer Success Manager',dept:'CS',pathScore:73,guideScore:73,callScore:null,reason:''},
-    {name:'Dave John Deocampo',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:''},
-    {name:'Francisco Maristela',title:'Sr. Manager, Customer Support',dept:'Support',pathScore:null,guideScore:75,callScore:null,reason:''},
-    {name:'Geoffrey Parker',title:'Senior Director, Customer Support',dept:'Support',pathScore:null,guideScore:null,callScore:null,reason:''},
-    {name:'George Dongallo',title:'Customer Success Manager',dept:'CS',pathScore:100,guideScore:100,callScore:19,reason:''},
-    {name:'Giana Contrada',title:'Customer Success Manager',dept:'CS',pathScore:92,guideScore:92,callScore:null,reason:''},
-    {name:'Igor Borges de Almeida',title:'Senior Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:''},
-    {name:'Iryna Pekarchyk',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:75,callScore:null,reason:''},
-    {name:'James Barry',title:'Senior Implementation Engineer',dept:'IE',pathScore:64,guideScore:64,callScore:null,reason:''},
-    {name:'Jeffrey Ball',title:'Senior Manager, Customer Success',dept:'CS',pathScore:100,guideScore:100,callScore:null,reason:''},
-    {name:'Jenna Duda',title:'Senior Manager, Customer Success',dept:'CS',pathScore:100,guideScore:100,callScore:null,reason:''},
-    {name:'John David',title:'Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:null,reason:''},
-    {name:'Johnrey Aballe',title:'Customer Success Manager',dept:'CS',pathScore:100,guideScore:100,callScore:20,reason:''},
-    {name:'Jonathan Monje',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:75,callScore:null,reason:''},
-    {name:'Julie Hodgson',title:'Senior Manager, Customer Success',dept:'CS',pathScore:100,guideScore:100,callScore:null,reason:''},
-    {name:"Karen O'Connor",title:'Strategic Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:18,reason:''},
-    {name:'Kateryna Antonenko',title:'Senior Customer Success Manager',dept:'CS',pathScore:94,guideScore:88,callScore:16,reason:''},
-    {name:'Kathleen Olarte',title:'Strategic Customer Success Manager',dept:'CS',pathScore:97,guideScore:94,callScore:20,reason:''},
-    {name:'Kelly Berg',title:'VP of Customer Experience',dept:'Leadership',pathScore:100,guideScore:100,callScore:null,reason:''},
-    {name:'Kelly Mendoza',title:'Strategic Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:16,reason:''},
-    {name:'Larry Xiao',title:'Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:20,reason:''},
-    {name:'Lesley Machado',title:'Senior Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:18,reason:''},
-    {name:'Liezl Caña',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:88,callScore:null,reason:''},
-    {name:'Lincoln Brown',title:'Customer Success Manager',dept:'CS',pathScore:80,guideScore:80,callScore:null,reason:''},
-    {name:'Lori Nolen',title:'Senior Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:16,reason:''},
-    {name:'Luccas Comitre',title:'Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:18,reason:''},
-    {name:'Marine Grandjean',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:''},
-    {name:'Martin Wilson',title:'Senior Customer Support Enablement Specialist',dept:'Support',pathScore:null,guideScore:null,callScore:null,reason:''},
-    {name:'Michael Maldonado',title:'Customer Success Manager',dept:'CS',pathScore:97,guideScore:94,callScore:18,reason:''},
-    {name:'Natalie Botto',title:'Customer Success Manager',dept:'CS',pathScore:80,guideScore:80,callScore:null,reason:''},
-    {name:'Pushpak Patel',title:'Implementation Engineer',dept:'IE',pathScore:93,guideScore:86,callScore:null,reason:''},
-    {name:'Sarah Herbaugh',title:'Senior Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:16,reason:''},
-    {name:'Sergio Ramirez-Diaz',title:'Senior Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:null,reason:''},
-    {name:'Silvia Rosado',title:'Implementation Engineer',dept:'IE',pathScore:94,guideScore:88,callScore:16,reason:''},
-    {name:'Taylor Sievers',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:75,callScore:18,reason:''},
-    {name:'Timothy Andrews',title:'Customer Success Manager',dept:'CS',pathScore:85,guideScore:86,callScore:null,reason:''},
-    {name:'Victoria Klinetska',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:''},
-    {name:'Vivian Mach',title:'Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:16,reason:''},
-    {name:'Yuliia Valko',title:'Senior Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:null,reason:''},
-    {name:'Zachary Nelson',title:'Manager, Customer Success',dept:'CS',pathScore:100,guideScore:100,callScore:null,reason:''},
+    {name:'Andrew Stevenson',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:81,callScore:18,reason:'',modules:{
+      guide:{assigned:'2026-03-30T07:49',completed:'2026-04-13T19:05',firstAccessed:'2026-04-13T18:27',lastAccessed:'2026-04-14T13:27'},
+      challenge:{assigned:'2026-03-30T07:49',completed:'2026-04-15T19:38',firstAccessed:'2026-04-15T17:38',lastAccessed:'2026-04-15T19:41'}
+    }},
+    {name:'Ashaiah Rainey',title:'Implementation Engineer',dept:'IE',pathScore:94,guideScore:88,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-08T18:30',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-08T18:59'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-08T18:11',firstAccessed:'2026-04-07T19:43',lastAccessed:'2026-04-08T18:56'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-08T18:30',firstAccessed:'2026-04-08T18:12',lastAccessed:'2026-04-08T18:59'}
+    }},
+    {name:'Benjamin Rasalan',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:81,callScore:null,reason:'',modules:{
+      guide:{assigned:'2026-03-13T12:24',completed:'2026-03-19T21:05',firstAccessed:'2026-03-16T21:45',lastAccessed:'2026-03-25T15:05'}
+    }},
+    {name:'Darwin Medina',title:'Customer Success Manager',dept:'CS',pathScore:73,guideScore:75,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-15T16:18'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-14T17:50',firstAccessed:'2026-04-13T14:55',lastAccessed:'2026-04-14T17:53'},
+      challenge:{assigned:'2026-03-24T17:03',firstAccessed:'2026-04-14T17:53',lastAccessed:'2026-04-15T16:18'}
+    }},
+    {name:'Dave John Deocampo',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-03-26T15:19'},
+      guide:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-26T15:19',lastAccessed:'2026-03-26T15:19'},
+      challenge:{assigned:'2026-03-24T17:03'}
+    }},
+    {name:'George Dongallo',title:'Customer Success Manager',dept:'CS',pathScore:100,guideScore:100,callScore:19,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-13T14:49',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-16T00:47'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-13T14:49',firstAccessed:'2026-03-25T03:51',lastAccessed:'2026-04-13T14:49'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-13T14:49',firstAccessed:'2026-04-09T14:50',lastAccessed:'2026-04-16T00:47'}
+    }},
+    {name:'Giana Contrada',title:'Customer Success Manager',dept:'CS',pathScore:92,guideScore:92,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-13T20:32'},
+      guide:{assigned:'2026-03-24T17:03',firstAccessed:'2026-04-13T16:38',lastAccessed:'2026-04-13T17:30'},
+      challenge:{assigned:'2026-03-24T17:03',firstAccessed:'2026-04-13T20:32',lastAccessed:'2026-04-13T20:32'}
+    }},
+    {name:'Igor Borges de Almeida',title:'Senior Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25'},
+      guide:{assigned:'2026-03-24T17:03'},
+      challenge:{assigned:'2026-03-24T17:03'}
+    }},
+    {name:'Iryna Pekarchyk',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:75,callScore:null,reason:'',modules:{
+      guide:{assigned:'2026-03-13T12:24',completed:'2026-03-27T13:38',firstAccessed:'2026-03-23T14:07',lastAccessed:'2026-04-15T19:32'}
+    }},
+    {name:'James Barry',title:'Senior Implementation Engineer',dept:'IE',pathScore:64,guideScore:64,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-03-30T21:05'},
+      guide:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-30T20:51',lastAccessed:'2026-03-30T21:05'},
+      challenge:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-30T20:51',lastAccessed:'2026-03-30T20:51'}
+    }},
+    {name:'John David',title:'Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-11T00:41',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-11T00:42'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-11T00:41',firstAccessed:'2026-04-06T14:23',lastAccessed:'2026-04-11T00:42'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-10T23:48',firstAccessed:'2026-04-09T17:16',lastAccessed:'2026-04-10T23:48'}
+    }},
+    {name:'Johnrey Aballe',title:'Customer Success Manager',dept:'CS',pathScore:100,guideScore:100,callScore:20,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-13T14:13',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-16T05:21'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-13T14:13',firstAccessed:'2026-04-09T11:57',lastAccessed:'2026-04-16T05:21'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-13T14:13',firstAccessed:'2026-04-10T06:30',lastAccessed:'2026-04-16T05:21'}
+    }},
+    {name:'Jonathan Monje',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:75,callScore:null,reason:'',modules:{
+      guide:{assigned:'2026-03-13T12:24',completed:'2026-03-30T16:09',firstAccessed:'2026-03-13T15:14',lastAccessed:'2026-03-30T16:11'}
+    }},
+    {name:"Karen O'Connor",title:'Strategic Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:18,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-03-24T20:07',firstAccessed:'2026-03-24T17:43',lastAccessed:'2026-04-06T18:41'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-03-24T19:48',firstAccessed:'2026-03-24T17:43',lastAccessed:'2026-03-24T19:48'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-03-24T20:07',firstAccessed:'2026-03-24T19:54',lastAccessed:'2026-04-06T18:41'}
+    }},
+    {name:'Kateryna Antonenko',title:'Senior Customer Success Manager',dept:'CS',pathScore:94,guideScore:88,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-10T15:14',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-14T12:13'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-10T15:14',firstAccessed:'2026-04-09T12:14',lastAccessed:'2026-04-10T15:14'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-10T09:40',firstAccessed:'2026-04-10T09:25',lastAccessed:'2026-04-14T12:13'}
+    }},
+    {name:'Kathleen Olarte',title:'Strategic Customer Success Manager',dept:'CS',pathScore:97,guideScore:94,callScore:20,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-10T20:29',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-13T16:51'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-10T20:29',firstAccessed:'2026-04-08T22:18',lastAccessed:'2026-04-13T16:51'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-09T20:02',firstAccessed:'2026-04-09T03:02',lastAccessed:'2026-04-13T16:51'}
+    }},
+    {name:'Kelly Mendoza',title:'Strategic Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-10T22:09',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-13T14:31'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-10T20:47',firstAccessed:'2026-03-24T22:41',lastAccessed:'2026-04-13T14:31'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-10T22:09',firstAccessed:'2026-03-24T23:14',lastAccessed:'2026-04-10T22:06'}
+    }},
+    {name:'Larry Xiao',title:'Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:20,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-13T23:22',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-13T23:22'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-13T23:20',firstAccessed:'2026-04-10T19:14',lastAccessed:'2026-04-13T23:20'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-13T23:22',firstAccessed:'2026-04-13T23:21',lastAccessed:'2026-04-13T23:21'}
+    }},
+    {name:'Lesley Machado',title:'Senior Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:18,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-08T16:12',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-08T16:10'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-08T00:55',firstAccessed:'2026-04-07T05:35',lastAccessed:'2026-04-08T00:55'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-08T16:12',firstAccessed:'2026-04-08T16:08',lastAccessed:'2026-04-08T16:10'}
+    }},
+    {name:'Liezl Caña',title:'Technical Account Manager',dept:'Support',pathScore:null,guideScore:88,callScore:null,reason:'',modules:{
+      guide:{assigned:'2026-03-13T12:24',completed:'2026-03-27T03:00',firstAccessed:'2026-03-26T23:12',lastAccessed:'2026-04-13T19:32'}
+    }},
+    {name:'Lincoln Brown',title:'Customer Success Manager',dept:'CS',pathScore:80,guideScore:81,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-15T03:39'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-15T03:39',firstAccessed:'2026-04-14T20:37',lastAccessed:'2026-04-15T03:39'},
+      challenge:{assigned:'2026-03-24T17:03'}
+    }},
+    {name:'Lori Nolen',title:'Senior Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-13T15:29',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-13T15:29'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-13T02:31',firstAccessed:'2026-04-10T20:19',lastAccessed:'2026-04-13T02:31'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-13T15:29',firstAccessed:'2026-04-13T15:22',lastAccessed:'2026-04-13T15:22'}
+    }},
+    {name:'Luccas Comitre',title:'Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:18,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-06T18:33',firstAccessed:'2026-03-24T17:31',lastAccessed:'2026-04-06T18:47'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-03-25T18:32',firstAccessed:'2026-03-24T17:31',lastAccessed:'2026-04-06T18:34'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-06T18:33',firstAccessed:'2026-04-06T18:23',lastAccessed:'2026-04-06T18:47'}
+    }},
+    {name:'Marine Grandjean',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25'},
+      guide:{assigned:'2026-03-24T17:03'},
+      challenge:{assigned:'2026-03-24T17:03'}
+    }},
+    {name:'Michael Maldonado',title:'Customer Success Manager',dept:'CS',pathScore:97,guideScore:94,callScore:18,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-10T18:40',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-10T18:40'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-10T18:31',firstAccessed:'2026-04-09T13:10',lastAccessed:'2026-04-10T18:31'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-10T18:40',firstAccessed:'2026-04-09T13:07',lastAccessed:'2026-04-10T18:32'}
+    }},
+    {name:'Natalie Botto',title:'Customer Success Manager',dept:'CS',pathScore:80,guideScore:81,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-16T04:10'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-16T03:51',firstAccessed:'2026-04-15T16:43',lastAccessed:'2026-04-16T04:09'},
+      challenge:{assigned:'2026-03-24T17:03',firstAccessed:'2026-04-15T20:55',lastAccessed:'2026-04-16T04:10'}
+    }},
+    {name:'Pushpak Patel',title:'Implementation Engineer',dept:'IE',pathScore:93,guideScore:86,callScore:17,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-15T16:46'},
+      guide:{assigned:'2026-03-24T17:03',firstAccessed:'2026-04-14T16:39',lastAccessed:'2026-04-15T16:46'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-14T18:33',firstAccessed:'2026-04-14T18:29',lastAccessed:'2026-04-15T15:44'}
+    }},
+    {name:'Sarah Herbaugh',title:'Senior Customer Success Manager',dept:'CS',pathScore:90,guideScore:81,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-10T19:37',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-13T14:36'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-10T19:37',firstAccessed:'2026-03-30T14:57',lastAccessed:'2026-04-13T14:36'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-09T13:03',firstAccessed:'2026-04-09T12:42',lastAccessed:'2026-04-09T17:13'}
+    }},
+    {name:'Sergio Ramirez-Diaz',title:'Senior Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:19,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-14T22:55'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-10T22:41',firstAccessed:'2026-04-10T21:20',lastAccessed:'2026-04-10T22:41'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-13T15:50',firstAccessed:'2026-04-13T15:49',lastAccessed:'2026-04-14T22:55'}
+    }},
+    {name:'Silvia Rosado',title:'Implementation Engineer',dept:'IE',pathScore:94,guideScore:88,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-11T00:25',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-11T00:26'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-11T00:25',firstAccessed:'2026-04-10T20:05',lastAccessed:'2026-04-11T00:26'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-10T21:05',firstAccessed:'2026-04-10T20:48',lastAccessed:'2026-04-10T20:49'}
+    }},
+    {name:'Taylor Sievers',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:75,callScore:18,reason:'',modules:{
+      guide:{assigned:'2026-03-30T08:22',completed:'2026-04-13T16:12',firstAccessed:'2026-04-13T14:14',lastAccessed:'2026-04-14T14:30'},
+      challenge:{assigned:'2026-03-30T08:22',completed:'2026-04-15T15:58',firstAccessed:'2026-04-13T19:41',lastAccessed:'2026-04-15T17:38'}
+    }},
+    {name:'Timothy Andrews',title:'Customer Success Manager',dept:'CS',pathScore:85,guideScore:86,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-09T21:16'},
+      guide:{assigned:'2026-03-24T17:03',firstAccessed:'2026-04-09T14:03',lastAccessed:'2026-04-09T21:16'},
+      challenge:{assigned:'2026-03-24T17:03'}
+    }},
+    {name:'Victoria Klinetska',title:'Customer Success Manager',dept:'CS',pathScore:null,guideScore:null,callScore:null,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',firstAccessed:'2026-03-24T18:25'},
+      guide:{assigned:'2026-03-24T17:03'},
+      challenge:{assigned:'2026-03-24T17:03'}
+    }},
+    {name:'Vivian Mach',title:'Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:16,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-09T19:13',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-09T19:13'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-09T19:13',firstAccessed:'2026-04-02T18:04',lastAccessed:'2026-04-09T19:13'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-07T18:26',firstAccessed:'2026-04-07T18:24',lastAccessed:'2026-04-09T16:21'}
+    }},
+    {name:'Yuliia Valko',title:'Senior Customer Success Manager',dept:'CS',pathScore:87,guideScore:75,callScore:17,reason:'',modules:{
+      path:{assigned:'2026-03-24T17:03',completed:'2026-04-09T12:48',firstAccessed:'2026-03-24T18:25',lastAccessed:'2026-04-09T16:33'},
+      guide:{assigned:'2026-03-24T17:03',completed:'2026-04-09T11:04',firstAccessed:'2026-04-07T14:01',lastAccessed:'2026-04-09T16:33'},
+      challenge:{assigned:'2026-03-24T17:03',completed:'2026-04-09T12:48',firstAccessed:'2026-04-09T11:06',lastAccessed:'2026-04-09T16:32'}
+    }},
   ]
 
   let DATA: User[] = BASE.map(u => ({ ...u, statusOverride: '' }))
@@ -384,11 +532,62 @@ function runDashboard(isAdmin: boolean) {
     compChart = new Chart(document.getElementById('compChart'), { type: 'bar', data: { labels: depts, datasets: [{ label: 'Certified', data: rows.map(r => r.c), backgroundColor: '#248567', stack: 's', borderRadius: [4, 4, 0, 0] }, { label: 'In progress', data: rows.map(r => r.ip), backgroundColor: '#EF9F27', stack: 's' }, { label: 'Failed', data: rows.map(r => r.fl), backgroundColor: '#E24B4A', stack: 's' }, { label: 'Not started', data: rows.map(r => r.ns), backgroundColor: 'rgba(136,135,128,0.25)', stack: 's' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } } } })
   }
 
+  function renderTiming() {
+    function daysBetween(a?: string, b?: string): number | null {
+      if (!a || !b) return null
+      const diff = new Date(b).getTime() - new Date(a).getTime()
+      return Math.round(diff / (1000 * 60 * 60 * 24) * 10) / 10
+    }
+    function fmtDays(d: number | null, isNA?: boolean): string {
+      if (isNA) return '<span class="timing-na">N/A</span>'
+      if (d === null) return '<span class="timing-na">—</span>'
+      const cls = d <= 7 ? 'timing-fast' : d <= 14 ? 'timing-mid' : 'timing-slow'
+      return `<span class="${cls}">${d < 1 ? '<1' : d.toFixed(1)}d</span>`
+    }
+    function avgDays(vals: (number | null)[]): string {
+      const v = vals.filter((x): x is number => x !== null)
+      if (!v.length) return '—'
+      return (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) + 'd'
+    }
+
+    const pathAC = DATA.map(u => !tamNames.has(u.name) && !newHireNames.has(u.name) ? daysBetween(u.modules?.path?.assigned, u.modules?.path?.completed) : null)
+    const pathFL = DATA.map(u => !tamNames.has(u.name) && !newHireNames.has(u.name) ? daysBetween(u.modules?.path?.firstAccessed, u.modules?.path?.lastAccessed) : null)
+    const guideAC = DATA.map(u => daysBetween(u.modules?.guide?.assigned, u.modules?.guide?.completed))
+    const guideFL = DATA.map(u => daysBetween(u.modules?.guide?.firstAccessed, u.modules?.guide?.lastAccessed))
+    const chalAC = DATA.map(u => !tamNames.has(u.name) ? daysBetween(u.modules?.challenge?.assigned, u.modules?.challenge?.completed) : null)
+    const chalFL = DATA.map(u => !tamNames.has(u.name) ? daysBetween(u.modules?.challenge?.firstAccessed, u.modules?.challenge?.lastAccessed) : null)
+
+    document.getElementById('timing-metrics')!.innerHTML = `
+      <div class="metric"><div class="metric-label">Avg PATH: assign→done</div><div class="metric-value" style="font-size:18px">${avgDays(pathAC)}</div><div class="metric-sub">completers only</div></div>
+      <div class="metric"><div class="metric-label">Avg Guide: assign→done</div><div class="metric-value" style="font-size:18px">${avgDays(guideAC)}</div><div class="metric-sub">completers only</div></div>
+      <div class="metric"><div class="metric-label">Avg Challenge: assign→done</div><div class="metric-value" style="font-size:18px">${avgDays(chalAC)}</div><div class="metric-sub">completers only</div></div>
+      <div class="metric"><div class="metric-label">Avg PATH active span</div><div class="metric-value" style="font-size:18px">${avgDays(pathFL)}</div><div class="metric-sub">first → last access</div></div>
+      <div class="metric"><div class="metric-label">Avg Guide active span</div><div class="metric-value" style="font-size:18px">${avgDays(guideFL)}</div><div class="metric-sub">first → last access</div></div>
+      <div class="metric"><div class="metric-label">Avg Challenge active span</div><div class="metric-value" style="font-size:18px">${avgDays(chalFL)}</div><div class="metric-sub">first → last access</div></div>`
+
+    document.getElementById('timing-body')!.innerHTML = DATA
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(u => {
+        const isTAM = tamNames.has(u.name), isNH = newHireNames.has(u.name)
+        return `<tr>
+          <td><strong>${u.name}</strong>${isNH ? ' <span class="badge b-prog" style="font-size:10px">New hire</span>' : ''}${isTAM ? ' <span class="badge b-none" style="font-size:10px">TAM</span>' : ''}</td>
+          <td><span class="badge b-dept">${u.dept}</span></td>
+          <td>${fmtDays(daysBetween(u.modules?.path?.assigned, u.modules?.path?.completed), isTAM || isNH)}</td>
+          <td>${fmtDays(daysBetween(u.modules?.path?.firstAccessed, u.modules?.path?.lastAccessed), isTAM || isNH)}</td>
+          <td>${fmtDays(daysBetween(u.modules?.guide?.assigned, u.modules?.guide?.completed))}</td>
+          <td>${fmtDays(daysBetween(u.modules?.guide?.firstAccessed, u.modules?.guide?.lastAccessed))}</td>
+          <td>${fmtDays(daysBetween(u.modules?.challenge?.assigned, u.modules?.challenge?.completed), isTAM)}</td>
+          <td>${fmtDays(daysBetween(u.modules?.challenge?.firstAccessed, u.modules?.challenge?.lastAccessed), isTAM)}</td>
+        </tr>`
+      }).join('')
+  }
+
   function refreshAll() {
     renderScoresTable()
     renderCallScores()
     renderCertified()
     renderCompletion()
+    renderTiming()
   }
 
   // Expose globals needed by inline onclick handlers
