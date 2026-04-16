@@ -16,11 +16,11 @@ const DASHBOARD_HTML = `
   <div class="toolbar">
     <div class="filter-row" style="margin:0">
       <label>Dept:</label>
-      <select id="dept-filter" onchange="renderScoresTable()">
+      <select id="dept-filter" onchange="window.renderScoresTable && window.renderScoresTable()">
         <option value="">All</option><option>CS</option><option>IE</option><option>Support</option><option>Leadership</option>
       </select>
       <label>Status:</label>
-      <select id="status-filter" onchange="renderScoresTable()">
+      <select id="status-filter" onchange="window.renderScoresTable && window.renderScoresTable()">
         <option value="">All</option><option>Certified</option><option>In progress</option><option>Not started</option><option>Failed / needs retry</option>
       </select>
     </div>
@@ -392,7 +392,9 @@ function runDashboard(isAdmin: boolean) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any
 
-  w.showSection = (id: string, btn: HTMLElement) => {
+  w.renderScoresTable = renderScoresTable
+
+  w.showSection =(id: string, btn: HTMLElement) => {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'))
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
     document.getElementById('sec-' + id)!.classList.add('visible')
