@@ -388,12 +388,16 @@ function renderScoresTable() {
   const ip=users.filter(u=>effStatus(u)==='In progress').length
   const fl=users.filter(u=>effStatus(u)==='Failed / needs retry').length
   const ns=users.filter(u=>effStatus(u)==='Not started').length
+  const nhTotal=DATA.filter(u=>NEW_HIRES.has(u.name)).length
+  const nhCert=DATA.filter(u=>NEW_HIRES.has(u.name)&&(isCertified(u)||u.statusOverride==='Certified')).length
+  const nhPct=nhTotal?Math.round(nhCert/nhTotal*100):0
   document.getElementById('scores-metrics').innerHTML = `
     <div class="metric"><div class="metric-label">Total assigned</div><div class="metric-value">${t}</div></div>
     <div class="metric"><div class="metric-label">Certified</div><div class="metric-value" style="color:#248567">${c}</div><div class="metric-sub">${Math.round(c/t*100)}%</div></div>
     <div class="metric"><div class="metric-label">In progress</div><div class="metric-value" style="color:#EF9F27">${ip}</div></div>
     <div class="metric"><div class="metric-label">Failed / retry</div><div class="metric-value" style="color:#E24B4A">${fl}</div></div>
-    <div class="metric"><div class="metric-label">Not started</div><div class="metric-value" style="color:#6b6a68">${ns}</div></div>`
+    <div class="metric"><div class="metric-label">Not started</div><div class="metric-value" style="color:#6b6a68">${ns}</div></div>
+    <div class="metric" style="border:.5px solid #b6ddd3;background:#e8f5f0"><div class="metric-label" style="color:#248567;font-weight:600">🎓 New hires certified</div><div class="metric-value" style="color:#248567">${nhCert}<span style="font-size:14px;font-weight:400;color:#6b6a68"> / ${nhTotal}</span></div><div class="metric-sub">${nhPct}% of new hires</div></div>`
   document.getElementById('scores-body').innerHTML = sortUsers(users).map(u => {
     const isTAM=TAMS.has(u.name), isNH=NEW_HIRES.has(u.name), st=effStatus(u)
     const reasonCell = isAdmin
