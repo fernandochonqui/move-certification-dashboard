@@ -55,6 +55,10 @@ tr:hover td{background:var(--bg2)}
 .filter-row select{font-size:12px;padding:4px 8px;border:.5px solid var(--border2);border-radius:var(--r-md);background:var(--bg);color:var(--text)}
 .search-box{font-size:12px;padding:4px 10px;border:.5px solid var(--border2);border-radius:var(--r-md);background:var(--bg);color:var(--text);width:180px}
 .search-box:focus{outline:none;border-color:var(--green)}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text);background:var(--bg2)}
+th.sort-asc::after{content:' ↑';color:var(--green)}
+th.sort-desc::after{content:' ↓';color:var(--green)}
 .btn-sm{font-size:12px;padding:5px 12px;border-radius:var(--r-md);border:.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer}
 .btn-sm:hover{background:var(--bg2)}
 .btn-save{border-color:var(--green);color:var(--green)}
@@ -134,12 +138,15 @@ tr:hover td{background:var(--bg2)}
     </div>
     <div class="hint" id="edit-hint" style="display:none">Click any score or status cell to edit it directly.</div>
     <div style="overflow-x:auto">
-      <table><thead><tr>
-        <th>Name</th><th>Type</th><th>Dept</th>
-        <th>Path score</th>
-        <th><span class="info-wrap">Guide score<span class="info-icon" data-tip="Users were tested on their overall understanding of the MOVE framework, and their ability to create CSQLs in SFDC.">i</span></span></th>
-        <th><span class="info-wrap">Call score<span class="info-icon" data-tip="Score out of 20 based on the MOVE Rubric. Rep was measured on their overall discovery, and their execution on each of the MOVE framework phases.">i</span></span></th>
-        <th>Overall status</th><th>Note / reason</th>
+      <table><thead><tr id="scores-thead">
+        <th class="sortable" onclick="sortBy('name')">Name</th>
+        <th>Type</th>
+        <th class="sortable" onclick="sortBy('dept')">Dept</th>
+        <th class="sortable" onclick="sortBy('pathScore')">Path score</th>
+        <th class="sortable" onclick="sortBy('guideScore')"><span class="info-wrap">Guide score<span class="info-icon" data-tip="Users were tested on their overall understanding of the MOVE framework, and their ability to create CSQLs in SFDC.">i</span></span></th>
+        <th class="sortable" onclick="sortBy('callScore')"><span class="info-wrap">Call score<span class="info-icon" data-tip="Score out of 20 based on the MOVE Rubric. Rep was measured on their overall discovery, and their execution on each of the MOVE framework phases.">i</span></span></th>
+        <th class="sortable" onclick="sortBy('status')">Overall status</th>
+        <th>Note / reason</th>
       </tr></thead>
       <tbody id="scores-body"></tbody></table>
     </div>
@@ -341,6 +348,34 @@ function statusCell(name, cur) {
   return `<select style="font-size:12px;padding:2px 6px;border:.5px solid #d4d3d1;border-radius:4px;background:#fff;color:#1c1b19" onchange="overrideStatus('${name}',this.value)">${opts.map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('')}</select>`
 }
 
+// ── Sort ──────────────────────────────────────────────────────────────────────
+let sortCol = 'name', sortDir = 1
+const colIndex = {name:0, dept:2, pathScore:3, guideScore:4, callScore:5, status:6}
+
+function sortBy(col) {
+  if (sortCol === col) sortDir *= -1
+  else { sortCol = col; sortDir = 1 }
+  // Update header classes
+  document.querySelectorAll('#scores-thead th').forEach((th, i) => {
+    th.classList.remove('sort-asc','sort-desc')
+    if (i === colIndex[col]) th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc')
+  })
+  renderScoresTable()
+}
+
+function sortUsers(users) {
+  return [...users].sort((a, b) => {
+    let va, vb
+    if (sortCol === 'name')       { va = a.name;          vb = b.name }
+    else if (sortCol === 'dept')  { va = a.dept;          vb = b.dept }
+    else if (sortCol === 'status'){ va = effStatus(a);    vb = effStatus(b) }
+    else                          { va = a[sortCol] ?? -1; vb = b[sortCol] ?? -1 }
+    if (va < vb) return -1 * sortDir
+    if (va > vb) return  1 * sortDir
+    return 0
+  })
+}
+
 // ── Render: Scores ────────────────────────────────────────────────────────────
 function renderScoresTable() {
   const dept = document.getElementById('dept-filter').value
@@ -357,7 +392,7 @@ function renderScoresTable() {
     <div class="metric"><div class="metric-label">In progress</div><div class="metric-value" style="color:#EF9F27">${ip}</div></div>
     <div class="metric"><div class="metric-label">Failed / retry</div><div class="metric-value" style="color:#E24B4A">${fl}</div></div>
     <div class="metric"><div class="metric-label">Not started</div><div class="metric-value" style="color:#6b6a68">${ns}</div></div>`
-  document.getElementById('scores-body').innerHTML = users.sort((a,b)=>a.name.localeCompare(b.name)).map(u => {
+  document.getElementById('scores-body').innerHTML = sortUsers(users).map(u => {
     const isTAM=TAMS.has(u.name), isNH=NEW_HIRES.has(u.name), st=effStatus(u)
     const reasonCell = isAdmin
       ? `<input class="reason-input" placeholder="Add note..." value="${u.reason||''}" onchange="updateReason('${u.name}',this.value)">`
