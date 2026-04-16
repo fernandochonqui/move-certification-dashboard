@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 
 const DASHBOARD_HTML = `
+<div id="global-tooltip"></div>
 <h2 class="sr-only">MOVE Certification Results Dashboard — four views: individual scores, call score distribution, certified users by department, and completion rates.</h2>
 <div class="nav">
   <button class="nav-btn active" onclick="showSection('scores',this)">Individual scores</button>
@@ -31,7 +32,7 @@ const DASHBOARD_HTML = `
   <div style="overflow-x:auto">
     <table><thead><tr>
       <th>Name</th><th>Type</th><th>Dept</th>
-      <th>Path score</th><th><span class="info-wrap">Guide score<span class="info-icon">i</span><span class="info-tooltip">Users were tested on their overall understanding of the MOVE framework, and their ability to be able to create CSQLs in SFDC.</span></span></th><th><span class="info-wrap">Call score<span class="info-icon">i</span><span class="info-tooltip">Score out of 20 based on the MOVE Rubric. Rep was measured on their overall discovery, and their execution on each of the MOVE framework phases.</span></span></th>
+      <th>Path score</th><th><span class="info-wrap">Guide score<span class="info-icon" data-tip="Users were tested on their overall understanding of the MOVE framework, and their ability to be able to create CSQLs in SFDC.">i</span></span></th><th><span class="info-wrap">Call score<span class="info-icon" data-tip="Score out of 20 based on the MOVE Rubric. Rep was measured on their overall discovery, and their execution on each of the MOVE framework phases.">i</span></span></th>
       <th>Overall status</th><th>Note / reason</th>
     </tr></thead>
     <tbody id="scores-body"></tbody></table>
@@ -115,11 +116,10 @@ tr:hover td{background:var(--color-background-secondary)}
 .legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--color-text-secondary)}
 .legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .hint{font-size:11px;color:var(--color-text-secondary);margin-bottom:10px}
-.info-wrap{position:relative;display:inline-flex;align-items:center;gap:4px}
+.info-wrap{display:inline-flex;align-items:center;gap:4px}
 .info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:99px;background:var(--color-background-secondary);border:.5px solid var(--color-border-secondary);color:var(--color-text-secondary);font-size:10px;cursor:default;font-style:normal;line-height:1;flex-shrink:0}
-.info-tooltip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1c1b19;color:#fff;font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;width:260px;white-space:normal;z-index:100;font-weight:400;pointer-events:none}
-.info-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1c1b19}
-.info-wrap:hover .info-tooltip{display:block}
+#global-tooltip{display:none;position:fixed;background:#1c1b19;color:#fff;font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;width:260px;white-space:normal;z-index:9999;font-weight:400;pointer-events:none}
+#global-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1c1b19}
 `
 
 export default function DashboardClient({ isAdmin }: { isAdmin: boolean }) {
@@ -448,6 +448,22 @@ function runDashboard(isAdmin: boolean) {
       alert('Failed to save. Please try again.')
     }
   }
+
+  // Global tooltip for info icons
+  const tooltip = document.getElementById('global-tooltip')!
+  document.addEventListener('mouseover', (e) => {
+    const target = (e.target as HTMLElement).closest('[data-tip]') as HTMLElement | null
+    if (!target) return
+    tooltip.textContent = target.dataset.tip || ''
+    tooltip.style.display = 'block'
+    const rect = target.getBoundingClientRect()
+    tooltip.style.left = Math.min(rect.left + rect.width / 2 - 130, window.innerWidth - 270) + 'px'
+    tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px'
+  })
+  document.addEventListener('mouseout', (e) => {
+    const target = (e.target as HTMLElement).closest('[data-tip]')
+    if (target) tooltip.style.display = 'none'
+  })
 
   // Load saved data then render
   fetch('/api/data')
