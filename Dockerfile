@@ -15,7 +15,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Copy standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+RUN mkdir -p ./public
 
 # Data directory for persisting dashboard saves
 RUN mkdir -p /app/data
