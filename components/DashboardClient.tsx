@@ -31,7 +31,7 @@ const DASHBOARD_HTML = `
   <div style="overflow-x:auto">
     <table><thead><tr>
       <th>Name</th><th>Type</th><th>Dept</th>
-      <th>Path score</th><th>Guide score</th><th>Call score</th>
+      <th>Path score</th><th>Guide score</th><th><span class="info-wrap">Call score<span class="info-icon">i</span><span class="info-tooltip">Score out of 20 based on the MOVE Rubric. Rep was measured on their overall discovery, and their execution on each of the MOVE framework phases.</span></span></th>
       <th>Overall status</th><th>Note / reason</th>
     </tr></thead>
     <tbody id="scores-body"></tbody></table>
@@ -115,6 +115,11 @@ tr:hover td{background:var(--color-background-secondary)}
 .legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--color-text-secondary)}
 .legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .hint{font-size:11px;color:var(--color-text-secondary);margin-bottom:10px}
+.info-wrap{position:relative;display:inline-flex;align-items:center;gap:4px}
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:99px;background:var(--color-background-secondary);border:.5px solid var(--color-border-secondary);color:var(--color-text-secondary);font-size:10px;cursor:default;font-style:normal;line-height:1;flex-shrink:0}
+.info-tooltip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1c1b19;color:#fff;font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px;width:260px;white-space:normal;z-index:100;font-weight:400;pointer-events:none}
+.info-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1c1b19}
+.info-wrap:hover .info-tooltip{display:block}
 `
 
 export default function DashboardClient({ isAdmin }: { isAdmin: boolean }) {
