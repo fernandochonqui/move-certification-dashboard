@@ -161,7 +161,7 @@ function runDashboard(isAdmin: boolean) {
   type User = {
     name: string; title: string; dept: string
     pathScore: number | null; guideScore: number | null; callScore: number | null
-    reason: string
+    reason: string; statusOverride?: string
   }
 
   const BASE: User[] = [
@@ -213,8 +213,6 @@ function runDashboard(isAdmin: boolean) {
   ]
 
   let DATA: User[] = BASE.map(u => ({ ...u }))
-  const statusOverrides: Record<string, string> = {}
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let csChart: any = null, certChart: any = null, compChart: any = null
 
@@ -232,7 +230,7 @@ function runDashboard(isAdmin: boolean) {
     return 'Not started'
   }
 
-  function getEffectiveStatus(u: User) { return statusOverrides[u.name] || getStatus(u) }
+  function getEffectiveStatus(u: User) { return u.statusOverride || getStatus(u) }
   function scoreClass(s: number | null) { if (s == null) return 'score-na'; if (s >= 90) return 'score-hi'; if (s >= 80) return 'score-mid'; return 'score-lo' }
   function scoreDisp(s: number | null) { return s == null ? '—' : String(s) }
 
@@ -266,7 +264,7 @@ function runDashboard(isAdmin: boolean) {
 
   function renderScoresMetrics(users: User[]) {
     const t = users.length
-    const c = users.filter(u => isCertified(u) || statusOverrides[u.name] === 'Certified').length
+    const c = users.filter(u => isCertified(u) || u.statusOverride === 'Certified').length
     const ip = users.filter(u => getEffectiveStatus(u) === 'In progress').length
     const fl = users.filter(u => getEffectiveStatus(u) === 'Failed / needs retry').length
     const ns = users.filter(u => getEffectiveStatus(u) === 'Not started').length
@@ -332,8 +330,8 @@ function runDashboard(isAdmin: boolean) {
   function renderCertified() {
     const depts = ['CS', 'IE', 'Support', 'Leadership']
     const certByDept: Record<string, number> = {}
-    depts.forEach(d => { certByDept[d] = DATA.filter(u => u.dept === d && (isCertified(u) || statusOverrides[u.name] === 'Certified')).length })
-    const totalCert = DATA.filter(u => isCertified(u) || statusOverrides[u.name] === 'Certified').length
+    depts.forEach(d => { certByDept[d] = DATA.filter(u => u.dept === d && (isCertified(u) || u.statusOverride === 'Certified')).length })
+    const totalCert = DATA.filter(u => isCertified(u) || u.statusOverride === 'Certified').length
     document.getElementById('cert-metrics')!.innerHTML = `
       <div class="metric"><div class="metric-label">Total certified</div><div class="metric-value" style="color:#248567">${totalCert}</div><div class="metric-sub">of ${DATA.length}</div></div>
       ${depts.map(d => { const c = certByDept[d], t = DATA.filter(u => u.dept === d).length; return `<div class="metric"><div class="metric-label">${d}</div><div class="metric-value">${c}</div><div class="metric-sub">of ${t}</div></div>` }).join('')}`
@@ -341,7 +339,7 @@ function runDashboard(isAdmin: boolean) {
     const Chart = (window as any).Chart
     if (certChart) { certChart.destroy(); certChart = null }
     certChart = new Chart(document.getElementById('certChart'), { type: 'bar', data: { labels: depts, datasets: [{ label: 'Certified', data: depts.map(d => certByDept[d]), backgroundColor: ['#248567', '#378ADD', '#D6CEFF', '#EF9F27'], borderRadius: 4 }, { label: 'Not yet', data: depts.map(d => DATA.filter(u => u.dept === d).length - certByDept[d]), backgroundColor: depts.map(() => 'rgba(136,135,128,0.18)'), borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } })
-    const certified = DATA.filter(u => isCertified(u) || statusOverrides[u.name] === 'Certified').sort((a, b) => a.dept.localeCompare(b.dept) || a.name.localeCompare(b.name))
+    const certified = DATA.filter(u => isCertified(u) || u.statusOverride === 'Certified').sort((a, b) => a.dept.localeCompare(b.dept) || a.name.localeCompare(b.name))
     document.getElementById('cert-body')!.innerHTML = certified.map(u => `<tr>
       <td><strong>${u.name}</strong></td>
       <td style="font-size:12px;color:var(--color-text-secondary)">${u.title}</td>
@@ -356,13 +354,13 @@ function runDashboard(isAdmin: boolean) {
     const depts = ['CS', 'IE', 'Support', 'Leadership']
     const rows = depts.map(d => {
       const users = DATA.filter(u => u.dept === d), t = users.length
-      const c = users.filter(u => isCertified(u) || statusOverrides[u.name] === 'Certified').length
+      const c = users.filter(u => isCertified(u) || u.statusOverride === 'Certified').length
       const ip = users.filter(u => getEffectiveStatus(u) === 'In progress').length
       const fl = users.filter(u => getEffectiveStatus(u) === 'Failed / needs retry').length
       const ns = users.filter(u => getEffectiveStatus(u) === 'Not started').length
       return { d, t, c, ip, fl, ns, pct: t ? Math.round(c / t * 100) : 0 }
     })
-    const overall = Math.round(DATA.filter(u => isCertified(u) || statusOverrides[u.name] === 'Certified').length / DATA.length * 100)
+    const overall = Math.round(DATA.filter(u => isCertified(u) || u.statusOverride === 'Certified').length / DATA.length * 100)
     document.getElementById('comp-metrics')!.innerHTML = `
       <div class="metric"><div class="metric-label">Overall rate</div><div class="metric-value" style="color:#248567">${overall}%</div></div>
       ${rows.map(r => `<div class="metric"><div class="metric-label">${r.d}</div><div class="metric-value">${r.pct}%</div><div class="metric-sub">${r.c} of ${r.t}</div></div>`).join('')}`
@@ -425,7 +423,11 @@ function runDashboard(isAdmin: boolean) {
     renderScoresTable()
   }
 
-  w.overrideStatus = (name: string, val: string) => { statusOverrides[name] = val; renderScoresTable() }
+  w.overrideStatus = (name: string, val: string) => {
+    const u = DATA.find(d => d.name === name)
+    if (u) u.statusOverride = val
+    renderScoresTable()
+  }
 
   w.updateReason = (name: string, val: string) => {
     const u = DATA.find(d => d.name === name)
@@ -477,6 +479,7 @@ function runDashboard(isAdmin: boolean) {
             if (saved.guideScore !== undefined) d.guideScore = saved.guideScore
             if (saved.callScore !== undefined) d.callScore = saved.callScore
             if (saved.reason !== undefined) d.reason = saved.reason || ''
+            if (saved.statusOverride !== undefined) d.statusOverride = saved.statusOverride
           }
         })
       }
