@@ -339,8 +339,10 @@ function callDisp(cs) {
 }
 function scoreCell(name, field, val, na) {
   if (na) return '<span class="score-na">N/A</span>'
-  if (!isAdmin) return `<span class="${sc(val)}">${sd(val)}</span>`
-  return `<span class="editable-cell ${sc(val)}" onclick="startEdit(this,'${name}','${field}')">${sd(val)}</span>`
+  const cls = field==='callScore' ? (val==null?'score-na':callClass(val)) : sc(val)
+  const disp = val==null ? '—' : String(val)
+  if (!isAdmin) return `<span class="${cls}">${disp}</span>`
+  return `<span class="editable-cell ${cls}" onclick="startEdit(this,'${name}','${field}')">${disp}</span>`
 }
 function statusCell(name, cur) {
   if (!isAdmin) return badge(cur)
