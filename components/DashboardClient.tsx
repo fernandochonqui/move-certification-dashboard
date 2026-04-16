@@ -31,7 +31,7 @@ const DASHBOARD_HTML = `
   <div style="overflow-x:auto">
     <table><thead><tr>
       <th>Name</th><th>Type</th><th>Dept</th>
-      <th>Path score</th><th>Guide score</th><th><span class="info-wrap">Call score<span class="info-icon">i</span><span class="info-tooltip">Score out of 20 based on the MOVE Rubric. Rep was measured on their overall discovery, and their execution on each of the MOVE framework phases.</span></span></th>
+      <th>Path score</th><th><span class="info-wrap">Guide score<span class="info-icon">i</span><span class="info-tooltip">Users were tested on their overall understanding of the MOVE framework, and their ability to be able to create CSQLs in SFDC.</span></span></th><th><span class="info-wrap">Call score<span class="info-icon">i</span><span class="info-tooltip">Score out of 20 based on the MOVE Rubric. Rep was measured on their overall discovery, and their execution on each of the MOVE framework phases.</span></span></th>
       <th>Overall status</th><th>Note / reason</th>
     </tr></thead>
     <tbody id="scores-body"></tbody></table>
