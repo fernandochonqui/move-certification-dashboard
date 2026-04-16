@@ -324,9 +324,11 @@ function badge(st) {
   if (st==='In progress') return `<span class="badge b-prog">In progress</span>`
   return `<span class="badge b-none">Not started</span>`
 }
+function callColor(cs) { return cs>=19?'#248567':cs>=17?'#EF9F27':'#E24B4A' }
+function callClass(cs) { return cs>=19?'score-hi':cs>=17?'score-mid':'score-lo' }
 function callDisp(cs) {
   if (cs==null) return '<span class="score-na">—</span>'
-  return `<span class="${cs>=16?'score-hi':'score-lo'}">${cs} ${cs>=16?'✓':'✗'}</span>`
+  return `<span class="${callClass(cs)}">${cs}</span>`
 }
 function scoreCell(name, field, val, na) {
   if (na) return '<span class="score-na">N/A</span>'
@@ -379,19 +381,20 @@ function renderCallScores() {
   const wc=DATA.filter(u=>u.callScore!=null), dist={}
   wc.forEach(u=>{dist[u.callScore]=(dist[u.callScore]||0)+1})
   const scores=Object.keys(dist).map(Number).sort((a,b)=>a-b)
-  const maxC=Math.max(...Object.values(dist),1), passed=wc.filter(u=>u.callScore>=16).length
+  const maxC=Math.max(...Object.values(dist),1), passed=wc.filter(u=>u.callScore>=19).length, mid=wc.filter(u=>u.callScore>=17&&u.callScore<=18).length
   const avg=wc.length?wc.reduce((s,u)=>s+u.callScore,0)/wc.length:0
   document.getElementById('cs-metrics').innerHTML=`
     <div class="metric"><div class="metric-label">Calls scored</div><div class="metric-value">${wc.length}</div></div>
-    <div class="metric"><div class="metric-label">Passed (≥16)</div><div class="metric-value" style="color:#248567">${passed}</div><div class="metric-sub">${wc.length?Math.round(passed/wc.length*100):0}%</div></div>
-    <div class="metric"><div class="metric-label">Did not pass</div><div class="metric-value" style="color:#E24B4A">${wc.length-passed}</div></div>
+    <div class="metric"><div class="metric-label">Strong (19–20)</div><div class="metric-value" style="color:#248567">${passed}</div><div class="metric-sub">${wc.length?Math.round(passed/wc.length*100):0}%</div></div>
+    <div class="metric"><div class="metric-label">Good (17–18)</div><div class="metric-value" style="color:#EF9F27">${mid}</div><div class="metric-sub">${wc.length?Math.round(mid/wc.length*100):0}%</div></div>
+    <div class="metric"><div class="metric-label">Needs work (16)</div><div class="metric-value" style="color:#E24B4A">${wc.filter(u=>u.callScore===16).length}</div></div>
     <div class="metric"><div class="metric-label">Avg score</div><div class="metric-value">${avg.toFixed(1)}</div></div>`
   document.getElementById('cs-dist').innerHTML=scores.map(s=>{
-    const cnt=dist[s],pct=Math.round(cnt/maxC*100),color=s>=16?'#248567':'#E24B4A'
+    const cnt=dist[s],pct=Math.round(cnt/maxC*100),color=callColor(s)
     return `<div class="cs-card"><div class="cs-score">${s}</div><div class="cs-count">${cnt} rep${cnt!==1?'s':''}</div><div class="cs-bar"><div class="cs-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`
   }).join('')
   if(csChart){csChart.destroy();csChart=null}
-  csChart=new Chart(document.getElementById('csChart'),{type:'bar',data:{labels:scores.map(String),datasets:[{label:'# of reps',data:scores.map(s=>dist[s]),backgroundColor:scores.map(s=>s>=16?'#248567':'#E24B4A'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Call score',font:{size:12}},ticks:{autoSkip:false}},y:{title:{display:true,text:'# of reps',font:{size:12}},ticks:{stepSize:1}}}}})
+  csChart=new Chart(document.getElementById('csChart'),{type:'bar',data:{labels:scores.map(String),datasets:[{label:'# of reps',data:scores.map(s=>dist[s]),backgroundColor:scores.map(s=>callColor(s)),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Call score',font:{size:12}},ticks:{autoSkip:false}},y:{title:{display:true,text:'# of reps',font:{size:12}},ticks:{stepSize:1}}}}})
 }
 
 // ── Render: Certified ─────────────────────────────────────────────────────────
